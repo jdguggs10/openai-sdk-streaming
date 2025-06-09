@@ -51,14 +51,30 @@ npm install
 # Authenticate with Cloudflare
 npx wrangler login
 
-# Set environment variables
+# Set up local environment variables
+cp .dev.vars.example .dev.vars
+# Edit .dev.vars with your configuration
+
+# Set production secrets (optional for development)
 npx wrangler secret put PROXY_AUTH_TOKEN
 
 # Start local development server
 npx wrangler pages dev public --compatibility-date=2025-06-08
 ```
 
+### Development Mode Features
+
+The local development server includes:
+- **Mock responses** when sports-proxy authentication fails
+- **Real-time testing** of the chat interface and SSE streaming
+- **Debug console** with detailed logging
+- **Test scenarios** for quick validation
+
 Access the local app at `http://localhost:8788`
+
+### Development vs Production
+- **Development**: Uses mock responses for testing without authentication
+- **Production**: Requires valid JWT tokens from auth-mcp service
 
 ## 📡 API Integration
 
