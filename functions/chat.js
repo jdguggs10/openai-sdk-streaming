@@ -40,16 +40,39 @@ export async function onRequestPost(context) {
     // Point to sports-proxy instead of OpenAI
     const upstream = env.SPORTS_PROXY_URL || "https://sports-proxy.gerrygugger.workers.dev/responses";
     
+    // For development, we can use a test token or skip auth
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    // Only add auth header if we have a token
+    if (env.PROXY_AUTH_TOKEN) {
+      headers['Authorization'] = `Bearer ${env.PROXY_AUTH_TOKEN}`;
+    }
+    
     const proxyResponse = await fetch(upstream, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.PROXY_AUTH_TOKEN || 'dev-token'}`
-      },
+      headers: headers,
       body: JSON.stringify(proxyRequest)
     });
     
     if (!proxyResponse.ok) {
+      // For development, return a mock response when auth fails
+      if (proxyResponse.status === 401 && env.ENVIRONMENT !== 'production') {
+        const mockResponse = `data: {"response_created":true}\n\ndata: {"text":"🏟️ **Development Mode** - Mock response for testing\\n\\nI would normally connect to the sports-proxy to get real Yankees data, but authentication is required for the production API.\\n\\n**Test Query:** ${userMessage}\\n**Sport Context:** ${sport}\\n**User ID:** ${userId}\\n\\nIn production, this would resolve team names, fetch roster data, and provide real-time statistics through the sports data platform."}\n\ndata: {"response_completed":true}\n\ndata: [DONE]\n\n`;
+        
+        return new Response(mockResponse, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+      
       throw new Error(`Sports proxy error: ${proxyResponse.status}`);
     }
     
@@ -67,7 +90,17 @@ export async function onRequestPost(context) {
     
   } catch (error) {
     console.error('Chat handler error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    
+    // Enhanced error response with debug info
+    const errorResponse = {
+      error: error.message,
+      debug: {
+        upstream: env.SPORTS_PROXY_URL || "https://sports-proxy.gerrygugger.workers.dev/responses",
+        hasToken: !!env.PROXY_AUTH_TOKEN
+      }
+    };
+    
+    return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
