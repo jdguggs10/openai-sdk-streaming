@@ -1,0 +1,26 @@
+# Wrangler configuration for Sports Platform Dev Chat (Pages)
+name = "sports-platform-dev-chat"
+pages_build_output_dir = "public"
+compatibility_date = "2025-06-08"
+
+[vars]
+SPORTS_PROXY_URL = "https://sports-proxy.gerrygugger.workers.dev/responses"
+
+# For development, we'll use secrets for auth token
+# Run: wrangler secret put PROXY_AUTH_TOKEN
+
+# Optional D1 binding for chat logs
+# [[d1_databases]]
+# binding = "CHAT_DB" 
+# database_name = "chat_dev"
+# database_id = "your-database-id"
+
+# Optional KV for session storage
+# [[kv_namespaces]]
+# binding = "CHAT_KV"
+# id = "your-kv-id"
+
+# Optional Durable Object for conversation state
+# [[durable_objects.bindings]]
+# name = "CONVO_DO"
+# class_name = "Conversation"

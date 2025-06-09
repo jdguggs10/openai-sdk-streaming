@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Platform Dev Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-message {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .streaming {
+            border-left: 3px solid #3b82f6;
+            background: #eff6ff;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Sports Platform Dev Chat</h1>
+            <p class="text-gray-600">Test interface for sports-proxy integration</p>
+            
+            <!-- Config Panel -->
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Sport</label>
+                    <select id="sportSelect" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="baseball">Baseball</option>
+                        <option value="hockey">Hockey</option>
+                        <option value="football">Football</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">User ID</label>
+                    <input type="text" id="userIdInput" value="dev-user" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Auth Token</label>
+                    <input type="text" id="authTokenInput" placeholder="dev-token" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="bg-white rounded-lg shadow-md h-96 flex flex-col">
+            <!-- Messages -->
+            <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-4">
+                <div class="chat-message p-3 bg-blue-50 rounded-lg">
+                    <div class="text-sm text-blue-600 font-medium">System</div>
+                    <div class="text-gray-800">Connected to sports-proxy. Try asking about teams, players, or stats!</div>
+                </div>
+            </div>
+            
+            <!-- Input -->
+            <div class="border-t p-4">
+                <div class="flex space-x-4">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Ask about sports data..." 
+                        class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        onkeypress="if(event.key==='Enter') sendMessage()"
+                    >
+                    <button 
+                        onclick="sendMessage()" 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Panel -->
+        <div class="mt-6 bg-gray-900 text-green-400 rounded-lg p-4 h-64 overflow-y-auto font-mono text-sm" id="debugLog">
+            <div class="text-green-300 font-bold">Debug Log:</div>
+            <div class="text-gray-400">Ready for SSE events...</div>
+        </div>
+
+        <!-- Test Scenarios -->
+        <div class="mt-6 bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Quick Test Scenarios</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onclick="sendTestMessage('Tell me about the Yankees')" class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <div class="font-medium">MLB Team Query</div>
+                    <div class="text-sm text-gray-600">Tell me about the Yankees</div>
+                </button>
+                <button onclick="sendTestMessage('Get Bruins roster')" class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <div class="font-medium">NHL Team Query</div>
+                    <div class="text-sm text-gray-600">Get Bruins roster</div>
+                </button>
+                <button onclick="sendTestMessage('Who won the last Yankees game?')" class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <div class="font-medium">Game Results</div>
+                    <div class="text-sm text-gray-600">Who won the last Yankees game?</div>
+                </button>
+                <button onclick="sendTestMessage('Show me baseball standings')" class="p-3 text-left bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <div class="font-medium">Standings Query</div>
+                    <div class="text-sm text-gray-600">Show me baseball standings</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentEventSource = null;
+
+        function addMessage(sender, content, isStreaming = false) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message p-3 rounded-lg ${isStreaming ? 'streaming' : ''}`;
+            
+            if (sender === 'user') {
+                messageDiv.className += ' bg-blue-600 text-white ml-12';
+            } else {
+                messageDiv.className += ' bg-gray-50 mr-12';
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="text-sm font-medium ${sender === 'user' ? 'text-blue-100' : 'text-gray-600'}">${sender}</div>
+                <div class="mt-1" id="content-${Date.now()}">${content}</div>
+            `;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return messageDiv;
+        }
+
+        function debugLog(message) {
+            const debugDiv = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            debugDiv.innerHTML += `\n[${timestamp}] ${message}`;
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            sendTestMessage(message);
+            input.value = '';
+        }
+
+        function sendTestMessage(message) {
+            // Add user message
+            addMessage('user', message);
+            
+            // Prepare request
+            const sport = document.getElementById('sportSelect').value;
+            const userId = document.getElementById('userIdInput').value;
+            const authToken = document.getElementById('authTokenInput').value;
+            
+            const requestData = {
+                message: message,
+                sport: sport,
+                userId: userId,
+                authToken: authToken
+            };
+            
+            debugLog(`Sending request: ${JSON.stringify(requestData)}`);
+            
+            // Close existing EventSource
+            if (currentEventSource) {
+                currentEventSource.close();
+            }
+            
+            // Send to chat endpoint
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                debugLog(`Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                // Create assistant message for streaming
+                const assistantMessage = addMessage('assistant', '...', true);
+                const contentDiv = assistantMessage.querySelector('[id^="content-"]');
+                let fullContent = '';
+                
+                // Set up EventSource for streaming
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function readStream() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            debugLog('Stream completed');
+                            assistantMessage.classList.remove('streaming');
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value);
+                        debugLog(`Received chunk: ${chunk.substring(0, 100)}...`);
+                        
+                        fullContent += chunk;
+                        contentDiv.textContent = fullContent;
+                        
+                        return readStream();
+                    });
+                }
+                
+                return readStream();
+            })
+            .catch(error => {
+                debugLog(`Error: ${error.message}`);
+                addMessage('system', `Error: ${error.message}`);
+            });
+        }
+
+        // Initialize
+        debugLog('Sports Platform Dev Chat initialized');
+        debugLog('Ready to test sports-proxy integration');
+    </script>
+</body>
+</html>
