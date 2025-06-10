@@ -14,28 +14,25 @@ export async function onRequestPost(context) {
     const userId = body.userId || "dev-user";
     const sport = body.sport || "baseball";
     
-    // Build sports-proxy compatible request
+    // Build sports-proxy compatible request using proper Responses API format
     const proxyRequest = {
-      model: "gpt-4",
+      model: "gpt-4.1-mini",
       input: userMessage,
-      tools: [
-        {
-          name: "resolve_team",
-          description: "Resolve team name to team information",
-          input_schema: {
-            type: "object",
-            properties: {
-              name: { type: "string", description: "Team name" }
-            }
-          }
-        }
-      ],
+      sport: sport,
+      userId: userId,
+      conversationType: "general",
+      stream: true,
+      // Add memories in the sports-proxy specific format
       memories: [
         { key: "user_sport", value: sport },
         { key: "user_id", value: userId }
-      ],
-      stream: true
+      ]
     };
+
+    // Include previous_response_id if provided for conversation continuity
+    if (body.previous_response_id) {
+      proxyRequest.previous_response_id = body.previous_response_id;
+    }
     
     // Point to sports-proxy instead of OpenAI
     const upstream = env.SPORTS_PROXY_URL || "https://sports-proxy.gerrygugger.workers.dev/responses";

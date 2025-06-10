@@ -109,6 +109,7 @@
 
     <script>
         let currentEventSource = null;
+        let lastResponseId = null; // Track conversation continuity
 
         function addMessage(sender, content, isStreaming = false) {
             const messagesDiv = document.getElementById('chatMessages');
@@ -160,7 +161,9 @@
                 message: message,
                 sport: sport,
                 userId: userId,
-                authToken: authToken
+                authToken: authToken,
+                // Include previous_response_id for conversation continuity
+                previous_response_id: lastResponseId
             };
             
             debugLog(`Sending request: ${JSON.stringify(requestData)}`);
@@ -193,6 +196,7 @@
                 // Set up EventSource for streaming
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+                let buffer = '';
                 
                 function readStream() {
                     return reader.read().then(({ done, value }) => {
@@ -203,10 +207,45 @@
                         }
                         
                         const chunk = decoder.decode(value);
-                        debugLog(`Received chunk: ${chunk.substring(0, 100)}...`);
+                        buffer += chunk;
                         
-                        fullContent += chunk;
-                        contentDiv.textContent = fullContent;
+                        // Process complete SSE events
+                        const events = buffer.split('\n\n');
+                        buffer = events.pop(); // Keep incomplete event in buffer
+                        
+                        events.forEach(event => {
+                            if (event.trim().startsWith('data: ')) {
+                                const dataLine = event.trim().substring(6); // Remove 'data: '
+                                debugLog(`SSE event: ${dataLine.substring(0, 50)}...`);
+                                
+                                if (dataLine === '[DONE]') {
+                                    debugLog('Stream marked as done');
+                                    return;
+                                }
+                                
+                                try {
+                                    const eventData = JSON.parse(dataLine);
+                                    
+                                    // Extract text content from the event
+                                    if (eventData.text) {
+                                        fullContent += eventData.text;
+                                        contentDiv.textContent = fullContent;
+                                    } else if (eventData.response_created) {
+                                        debugLog(`Response created with ID: ${eventData.id}`);
+                                        lastResponseId = eventData.id; // Store for next message
+                                        contentDiv.textContent = ''; // Clear initial "..."
+                                        fullContent = '';
+                                    } else if (eventData.response_completed) {
+                                        debugLog('Response completed');
+                                    } else if (eventData.error) {
+                                        debugLog(`Stream error: ${eventData.error}`);
+                                        contentDiv.textContent = `Error: ${eventData.error}`;
+                                    }
+                                } catch (parseError) {
+                                    debugLog(`Failed to parse SSE data: ${parseError.message}`);
+                                }
+                            }
+                        });
                         
                         return readStream();
                     });
